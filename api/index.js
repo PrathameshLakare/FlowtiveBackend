@@ -42,30 +42,28 @@ app.post("/auth/signup", async (req, res) => {
     const existedUser = await User.findOne({ email });
 
     if (existedUser) {
-      return res.status(400).json({ message: "Email already exists." });
+      res.status(400).json({ message: "User already exists." });
+    } else {
+      //hash the password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      const newUser = new User({
+        name,
+        email,
+        password: hashedPassword,
+      });
+
+      await newUser.save();
+
+      const token = jwt.sign({ id: newUser._id, role: "user" }, JWT_SECRET, {
+        expiresIn: "24h",
+      });
+
+      res.status(201).json({ message: "User registered successfully", token });
     }
-
-    //hash the password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword,
-    });
-
-    await newUser.save();
-
-    const token = jwt.sign({ role: "user" }, JWT_SECRET, {
-      expiresIn: "24h",
-    });
-
-    return res
-      .status(201)
-      .json({ message: "User registered successfully", token });
   } catch (error) {
-    return res.status(500).json({ message: "Internal server error." });
+    res.status(500).json({ message: "Internal server error." });
   }
 });
 
@@ -76,17 +74,68 @@ app.post("/auth/login", async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user && bcrypt.compare(password, user.password)) {
-      const token = jwt.sign({ role: "user" }, JWT_SECRET, {
+      const token = jwt.sign({ id: user._id, role: "user" }, JWT_SECRET, {
         expiresIn: "24h",
       });
-      return res
-        .status(201)
-        .json({ message: "User login successfully.", token });
+      res.status(201).json({ message: "User login successfully.", token });
     } else {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
     }
   } catch (error) {
-    return res.status(500).json({ message: "Internal server error." });
+    res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+app.get("/auth/me", verifyJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log(req.user);
+
+    const user = await User.findById(userId).select("name email");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+app.post("/tasks", verifyJWT, async (req, res) => {
+  const { name, project, team, owners, tags, timeToComplete, status } =
+    req.body;
+
+  try {
+    const isTeamExist = await Team.findById(team);
+    if (!isTeamExist) {
+      res.status(400).json({ message: "Invalid team ID" });
+    }
+
+    const isOwnerExist = await User.find({ _id: { $in: owners } });
+    if (!isOwnerExist) {
+      res.status(400).json({ message: "One or more user IDs are invalid" });
+    }
+
+    const newTask = new Task({
+      name,
+      project,
+      team,
+      owners,
+      tags,
+      timeToComplete,
+      status,
+    });
+
+    await newTask.save();
+
+    res.status(201).json({
+      message: "Task created successfully",
+      task: newTask,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error." });
   }
 });
 
