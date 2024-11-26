@@ -116,6 +116,16 @@ app.get("/auth/me", verifyJWT, async (req, res) => {
   }
 });
 
+app.get("/users", verifyJWT, async (req, res) => {
+  try {
+    const users = await User.find();
+
+    res.status(200).json({ users });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error." });
+  }
+});
+
 app.post("/tasks", verifyJWT, async (req, res) => {
   try {
     const isTeamExist = await Team.findById(req.body.team);
@@ -148,7 +158,8 @@ app.get("/tasks", verifyJWT, async (req, res) => {
     if (req.query.tags) {
       req.query.tags = { $in: req.query.tags.split(",") };
     }
-    const tasks = await Task.find(req.query);
+
+    const tasks = await Task.find(req.query).populate(["owners", "team"]);
 
     res.status(200).json(tasks);
   } catch (error) {
