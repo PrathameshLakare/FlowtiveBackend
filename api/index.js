@@ -159,7 +159,11 @@ app.get("/tasks", verifyJWT, async (req, res) => {
       req.query.tags = { $in: req.query.tags.split(",") };
     }
 
-    const tasks = await Task.find(req.query).populate(["owners", "team"]);
+    const tasks = await Task.find(req.query).populate([
+      "owners",
+      "team",
+      "project",
+    ]);
 
     res.status(200).json(tasks);
   } catch (error) {
@@ -171,7 +175,7 @@ app.post("/tasks/:id", verifyJWT, async (req, res) => {
   try {
     const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
-    });
+    }).populate(["owners", "team", "project"]);
 
     if (!updatedTask) {
       res.status(404).json({ message: "Task not found." });
