@@ -155,15 +155,39 @@ app.post("/tasks", verifyJWT, async (req, res) => {
 
 app.get("/tasks", verifyJWT, async (req, res) => {
   try {
+    const filterCriteria = {};
     if (req.query.tags) {
-      req.query.tags = { $in: req.query.tags.split(",") };
+      filterCriteria.tags = req.query.tags;
     }
 
-    const tasks = await Task.find(req.query).populate([
-      "owners",
-      "team",
-      "project",
-    ]);
+    if (req.query.status) {
+      filterCriteria.status = req.query.status;
+    }
+
+    if (req.query.owners) {
+      filterCriteria.owners = req.query.owners;
+    }
+
+    if (req.query.project) {
+      filterCriteria.project = req.query.project;
+    }
+
+    if (req.query.team) {
+      filterCriteria.team = req.query.team;
+    }
+
+    const sortCriteria = {};
+    if (req.query.sortBy === "dueDate") {
+      sortCriteria.dueDate = req.query.order === "desc" ? -1 : 1;
+    }
+
+    const tasks = await Task.find(filterCriteria)
+      .populate({
+        path: "owners",
+        select: "-password",
+      })
+      .populate(["team", "project"])
+      .sort(sortCriteria);
 
     res.status(200).json(tasks);
   } catch (error) {
@@ -273,51 +297,39 @@ app.get("/tags", verifyJWT, async (req, res) => {
 
 app.get("/report/last-week", verifyJWT, async (req, res) => {
   try {
-    const lastWeekDate = new Date();
-    lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    const tasksLastWeek = await Task.aggregate([
-      {
-        $match: {
-          status: "Completed",
-          updatedAt: { $gte: lastWeekDate }, // Filter tasks
-        },
-      },
-      {
-        $count: "totalCompleted", // Count completed tasks
-      },
-    ]);
+    const lastWeekTasks = await Task.find({
+      status: "Completed",
+      updatedAt: { $gte: oneWeekAgo },
+    });
 
     res.status(200).json({
-      message: "Tasks from the last week fetched successfully.",
-      data: tasksLastWeek,
+      message: "Tasks completed in the last week.",
+      data: lastWeekTasks,
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
 
 app.get("/report/pending", verifyJWT, async (req, res) => {
   try {
-    const pendingWork = await Task.aggregate([
-      {
-        $match: {
-          status: { $ne: "Completed" },
-        },
-      },
-      {
-        $group: {
-          _id: null, // no grouping of tasks
-          totalPendingTime: { $sum: "$timeToComplete" }, // sum time to completed
-        },
-      },
-    ]);
+    const pendingTasks = await Task.find({ status: { $ne: "Completed" } });
+
+    const totalPendingDays = pendingTasks.reduce(
+      (total, task) => total + task.timeToComplete,
+      0
+    );
 
     res.status(200).json({
-      message: "Total pending work time.",
-      data: pendingWork,
+      message: "Total pending work in days.",
+      data: { totalPendingDays },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
@@ -326,22 +338,36 @@ app.get("/report/closed-tasks", verifyJWT, async (req, res) => {
   try {
     const { groupBy } = req.query;
 
-    if (!["team", "owner", "project"].includes(groupBy)) {
-      return res.status(400).json({
-        message: "Invalid groupBy parameter.",
-      });
+    if (!["team", "owners", "project"].includes(groupBy)) {
+      return res.status(400).json({ message: "Invalid groupBy parameter." });
     }
 
     const closedTasks = await Task.aggregate([
       {
-        $match: {
-          status: "Completed",
-        },
+        $match: { status: "Completed" },
       },
       {
         $group: {
           _id: `$${groupBy}`,
           totalClosedTasks: { $sum: 1 },
+        },
+      },
+      {
+        $lookup: {
+          from:
+            groupBy === "team"
+              ? "teams"
+              : groupBy === "owners"
+              ? "users"
+              : "projects",
+          localField: "_id",
+          foreignField: "_id",
+          as: "details",
+        },
+      },
+      {
+        $project: {
+          "details.password": 0,
         },
       },
     ]);
@@ -351,6 +377,7 @@ app.get("/report/closed-tasks", verifyJWT, async (req, res) => {
       data: closedTasks,
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
