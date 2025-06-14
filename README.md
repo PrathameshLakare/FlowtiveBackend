@@ -147,7 +147,7 @@ Create a new team
 ```json
 {
   "message": "Team created successfully",
-  "team": { ... }
+  "team": {}
 }
 ```
 
@@ -189,7 +189,7 @@ Create a new project
 ```json
 {
   "message": "Project created successfully.",
-  "project": { ... }
+  "project": {}
 }
 ```
 
@@ -201,7 +201,7 @@ List all projects
 ```json
 {
   "message": "Projects fetched successfully.",
-  "projects": [ ... ]
+  "projects": []
 }
 ```
 
@@ -225,7 +225,7 @@ Create a new tag
 ```json
 {
   "message": "Tag created successfully.",
-  "tag": { ... }
+  "tag": {}
 }
 ```
 
@@ -237,7 +237,7 @@ List all tags
 ```json
 {
   "message": "Tags fetched successfully.",
-  "tags": [ ... ]
+  "tags": []
 }
 ```
 
@@ -267,7 +267,7 @@ Create a new task
 ```json
 {
   "message": "Task created successfully",
-  "task": { ... }
+  "task": {}
 }
 ```
 
@@ -303,7 +303,7 @@ Update a task
 ```json
 {
   "message": "Task updated successfully",
-  "task": { ... }
+  "task": {}
 }
 ```
 
@@ -315,7 +315,7 @@ Delete a task
 ```json
 {
   "message": "Task deleted successfully",
-  "task": { ... }
+  "task": {}
 }
 ```
 
@@ -331,7 +331,7 @@ Get tasks completed in the last week
 ```json
 {
   "message": "Tasks completed in the last week.",
-  "data": [ ... ]
+  "data": []
 }
 ```
 
@@ -355,7 +355,7 @@ Get closed tasks grouped by team, owners, or project
 ```json
 {
   "message": "Tasks closed by each team.",
-  "data": [ ... ]
+  "data": []
 }
 ```
 
